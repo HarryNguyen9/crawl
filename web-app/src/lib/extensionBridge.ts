@@ -18,6 +18,7 @@ const globalBridge = globalThis as typeof globalThis & { __tmallExtensionBridge?
 const bridgeState = (globalBridge.__tmallExtensionBridge ??= { clients: new Map() });
 
 export const extensionRowSchema = z.object({
+  url: z.string().optional().nullable(),
   productName: z.string().optional(),
   shopId: z.union([z.string(), z.number()]).optional().nullable(),
   itemId: z.union([z.string(), z.number()]).optional().nullable(),
@@ -71,6 +72,7 @@ export function normalizeExtensionRows(rows: unknown[]) {
     const parsed = extensionRowSchema.parse(row);
     return {
       productName: parsed.productName || "Unknown marketplace product",
+      url: parsed.url || null,
       shopId: parsed.shopId === null || parsed.shopId === undefined ? null : String(parsed.shopId),
       itemId: parsed.itemId === null || parsed.itemId === undefined ? null : String(parsed.itemId),
       skuId: parsed.skuId === null || parsed.skuId === undefined ? null : String(parsed.skuId),
@@ -116,7 +118,7 @@ export function getExtensionStatus() {
   const clients = Array.from(bridgeState.clients.values()).sort((a, b) => b.lastHeartbeat.localeCompare(a.lastHeartbeat));
   const latest = clients[0] ?? null;
   const connected =
-    latest !== null && Date.now() - new Date(latest.lastHeartbeat).getTime() <= Math.max(10000, envNumber("EXTENSION_POLL_INTERVAL_MS", 3000) * 3);
+    latest !== null && Date.now() - new Date(latest.lastHeartbeat).getTime() <= Math.max(30000, envNumber("EXTENSION_POLL_INTERVAL_MS", 3000) * 6);
   return { connected, latest, clients };
 }
 
@@ -240,7 +242,7 @@ export async function saveExtensionResult(input: z.infer<typeof extensionResultS
         jobId: link.jobId,
         linkId: link.id,
         platform: link.platform,
-        url: link.url,
+        url: row.url || link.url,
         shopId: row.shopId,
         itemId: row.itemId,
         skuId: row.skuId,

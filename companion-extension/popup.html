@@ -18,7 +18,8 @@
         font-size: 12px;
         font-weight: 700;
       }
-      input {
+      input,
+      select {
         box-sizing: border-box;
         width: 100%;
         margin-top: 4px;
@@ -60,6 +61,12 @@
     <input id="appUrl" placeholder="https://crawl-pi.vercel.app" />
     <label for="token">Extension Token</label>
     <input id="token" placeholder="EXTENSION_TOKEN" type="password" />
+    <label for="maxTabs">Tabs cùng lúc</label>
+    <select id="maxTabs">
+      <option value="1">1 tab</option>
+      <option value="3">3 tab</option>
+      <option value="5">5 tab</option>
+    </select>
     <div class="row">
       <button id="connect">Connect</button>
       <button id="stop" class="secondary">Stop</button>

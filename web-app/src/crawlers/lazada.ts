@@ -27,6 +27,17 @@ export function parseVnd(value?: string | number | null) {
   return digits ? Number(digits) : 0;
 }
 
+function parsePriceValue(value: unknown) {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return 0;
+    if (/^\d+$/.test(trimmed)) return Number(trimmed);
+    return parseVnd(trimmed);
+  }
+  return 0;
+}
+
 function findSkuInfosRecursive(obj: unknown): Record<string, any> | null {
   if (!obj || typeof obj !== "object") return null;
   const current = obj as Record<string, any>;
@@ -147,13 +158,13 @@ function parseLazadaPageData(pageData: any, titleFromDom: string, method: Lazada
 
       const recursivePrice = findPriceRecursively(pageData, skuId);
       const priceInfo = firstPriceInfo(sku.price, skuInfos[skuId]?.price, recursivePrice);
-      const originalPrice = Number(priceInfo.originalPrice?.value) || parseVnd(priceInfo.originalPrice?.text) || 0;
+      const originalPrice = parsePriceValue(priceInfo.originalPrice?.value) || parseVnd(priceInfo.originalPrice?.text) || 0;
       const salePrice =
-        Number(priceInfo.salePrice?.value) ||
+        parsePriceValue(priceInfo.salePrice?.value) ||
         parseVnd(priceInfo.salePrice?.text) ||
         parseVnd(priceInfo.salePrice?.noSymbolPriceText) ||
         0;
-      const finalPrice = Number(priceInfo.coupon?.priceNumber) || parseVnd(priceInfo.coupon?.priceText) || salePrice;
+      const finalPrice = parsePriceValue(priceInfo.coupon?.priceNumber) || parseVnd(priceInfo.coupon?.priceText) || salePrice;
       const discountText = priceInfo.coupon?.desc || null;
       const couponDiscount = parseVnd(discountText || "");
       const fallbackPrice = !originalPrice && !salePrice && !finalPrice && trackingPrice ? trackingPrice : 0;

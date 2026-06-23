@@ -12,6 +12,7 @@ test("normalizeExtensionRows coerces prices and stores rawJson strings", () => {
   const rows = normalizeExtensionRows([
     {
       productName: "Product",
+      url: "https://www.lazada.vn/products/i1-s123.html",
       skuId: 123,
       variantName: "Red",
       originalPrice: "813000",
@@ -25,6 +26,7 @@ test("normalizeExtensionRows coerces prices and stores rawJson strings", () => {
   ]);
 
   assert.equal(rows[0].skuId, "123");
+  assert.equal(rows[0].url, "https://www.lazada.vn/products/i1-s123.html");
   assert.equal(rows[0].originalPrice, 813000);
   assert.equal(rows[0].currentPrice, 783000);
   assert.equal(rows[0].finalPrice, 625045);

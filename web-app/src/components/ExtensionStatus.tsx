@@ -17,6 +17,10 @@ function formatTime(value?: string | null) {
   return new Date(value).toLocaleTimeString("vi-VN");
 }
 
+function titleCase(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+}
+
 export function ExtensionStatus({ platform, status }: { platform: Platform; status: ExtensionStatusPayload | null }) {
   const connected = Boolean(status?.connected);
   const latest = status?.latest;
@@ -27,7 +31,7 @@ export function ExtensionStatus({ platform, status }: { platform: Platform; stat
       <div className="font-medium">{label} cần Companion Extension để lấy giá chính xác.</div>
       <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
         <div>
-          <span className="text-amber-700 dark:text-amber-300">Extension:</span> {connected ? "connected" : "disconnected"}
+          <span className="text-amber-700 dark:text-amber-300">Extension:</span> {titleCase(connected ? "connected" : "disconnected")}
         </div>
         <div>
           <span className="text-amber-700 dark:text-amber-300">Last heartbeat:</span> {formatTime(latest?.lastHeartbeat)}

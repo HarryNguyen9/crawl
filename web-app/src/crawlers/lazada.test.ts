@@ -2,6 +2,35 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { parseLazadaHtml, parseVnd, shouldUsePlaywrightFallback } from "./lazada";
 
+test("parseLazadaHtml handles dotted numeric price values", () => {
+  const pageData = {
+    data: {
+      root: {
+        fields: {
+          product: { title: "Little Ondine" },
+          skuInfos: {
+            "116932085440": {
+              skuId: "116932085440",
+              price: {
+                originalPrice: { value: "830.000" },
+                salePrice: { value: "119.630" }
+              }
+            }
+          }
+        }
+      }
+    }
+  };
+  const html = `<script>window.pageData = ${JSON.stringify(pageData)};</script>`;
+
+  const parsed = parseLazadaHtml(html);
+
+  assert.equal(parsed.skus[0].originalPrice, 830000);
+  assert.equal(parsed.skus[0].salePrice, 119630);
+  assert.equal(parsed.skus[0].currentPrice, 119630);
+  assert.equal(parsed.skus[0].finalPrice, 119630);
+});
+
 test("parseVnd handles Lazada formatted VND text", () => {
   assert.equal(parseVnd("685.000 ₫"), 685000);
   assert.equal(parseVnd("Mua ngay giảm 125.260 ₫"), 125260);

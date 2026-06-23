@@ -31,7 +31,8 @@ export async function buildJobWorkbook(jobId: string) {
           "Original Price": row.originalPrice,
           "Current Price": row.currentPrice,
           "Final Price": row.finalPrice,
-          "Voucher Note": row.voucherNote ?? "",
+          Voucher: row.discountText ?? "",
+          "Voucher Note": row.voucherNote?.includes("not checkout-guaranteed") ? "Estimated" : row.voucherNote ?? "",
           URL: row.url
         }));
 

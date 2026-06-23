@@ -2,14 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-ink: 11 18 32;
+  --color-muted: 63 78 103;
+  --color-panel: 232 238 246;
+  --color-surface: 255 255 255;
+  --color-surface-2: 236 242 250;
+  --color-line: 196 207 224;
+}
+
+.dark {
+  --color-ink: 248 250 252;
+  --color-muted: 180 194 214;
+  --color-panel: 8 15 29;
+  --color-surface: 24 36 56;
+  --color-surface-2: 45 62 88;
+  --color-line: 85 103 132;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background: #eef2f6;
-  color: #17202a;
+  background: rgb(var(--color-panel));
+  color: rgb(var(--color-ink));
+  font-weight: 500;
 }
 
 button:disabled {

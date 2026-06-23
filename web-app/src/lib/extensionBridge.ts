@@ -70,7 +70,7 @@ export function normalizeExtensionRows(rows: unknown[]) {
   return rows.map((row) => {
     const parsed = extensionRowSchema.parse(row);
     return {
-      productName: parsed.productName || "Unknown Lazada product",
+      productName: parsed.productName || "Unknown marketplace product",
       shopId: parsed.shopId === null || parsed.shopId === undefined ? null : String(parsed.shopId),
       itemId: parsed.itemId === null || parsed.itemId === undefined ? null : String(parsed.itemId),
       skuId: parsed.skuId === null || parsed.skuId === undefined ? null : String(parsed.skuId),
@@ -120,12 +120,12 @@ export function getExtensionStatus() {
   return { connected, latest, clients };
 }
 
-export async function claimNextMarketplaceLink(clientId: string) {
+export async function claimNextMarketplaceLink(clientId: string, platform?: Platform) {
   touchExtensionClient(clientId);
 
   const link = await prisma.crawlLink.findFirst({
     where: {
-      platform: { in: [Platform.lazada, Platform.shopee] },
+      platform: platform ? platform : { in: [Platform.lazada, Platform.shopee] },
       status: CrawlLinkStatus.pending,
       job: { status: { in: [CrawlJobStatus.pending, CrawlJobStatus.running] } }
     },
@@ -158,6 +158,20 @@ export async function claimNextMarketplaceLink(clientId: string) {
   });
 
   touchExtensionClient(clientId, link.url);
+  return { jobId: link.jobId, linkId: link.id, url: link.url, platform: link.platform };
+}
+
+export async function peekNextMarketplaceLink(clientId: string, platform?: Platform) {
+  touchExtensionClient(clientId);
+  const link = await prisma.crawlLink.findFirst({
+    where: {
+      platform: platform ? platform : { in: [Platform.lazada, Platform.shopee] },
+      status: CrawlLinkStatus.pending,
+      job: { status: { in: [CrawlJobStatus.pending, CrawlJobStatus.running] } }
+    },
+    orderBy: { createdAt: "asc" }
+  });
+  if (!link) return null;
   return { jobId: link.jobId, linkId: link.id, url: link.url, platform: link.platform };
 }
 

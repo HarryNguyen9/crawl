@@ -47,6 +47,7 @@ export default function Home() {
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatusPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
 
   const linksText = linksTextByPlatform[platform];
   const activeJobId = activeJobIdByPlatform[platform];
@@ -103,9 +104,7 @@ export default function Home() {
 
   async function refreshAll() {
     await loadJobs();
-    if (platform === "lazada") {
-      await loadExtensionStatus();
-    }
+    await loadExtensionStatus();
     if (activeJobId) {
       await Promise.all([loadJob(activeJobId, platform), loadResults(activeJobId, platform)]);
     }
@@ -163,51 +162,64 @@ export default function Home() {
   useEffect(() => {
     setError(null);
     void loadJobs(platform);
-    if (platform === "lazada") void loadExtensionStatus();
+    void loadExtensionStatus();
   }, [platform]);
 
   useEffect(() => {
     if (!activeJobId) {
-      if (platform === "lazada") {
-        const timer = window.setInterval(() => void loadExtensionStatus(), 3000);
-        return () => window.clearInterval(timer);
-      }
-      return;
+      const timer = window.setInterval(() => void loadExtensionStatus(), 3000);
+      return () => window.clearInterval(timer);
     }
-    void Promise.all([loadJob(activeJobId, platform), loadResults(activeJobId, platform), platform === "lazada" ? loadExtensionStatus() : Promise.resolve()]);
+    void Promise.all([loadJob(activeJobId, platform), loadResults(activeJobId, platform), loadExtensionStatus()]);
     const timer = window.setInterval(() => {
-      void Promise.all([loadJob(activeJobId, platform), loadResults(activeJobId, platform), loadJobs(), platform === "lazada" ? loadExtensionStatus() : Promise.resolve()]);
+      void Promise.all([loadJob(activeJobId, platform), loadResults(activeJobId, platform), loadJobs(), loadExtensionStatus()]);
     }, 2500);
     return () => window.clearInterval(timer);
   }, [activeJobId, platform]);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    setDarkMode(saved ? saved === "dark" : prefersDark);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+    window.localStorage.setItem("theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
 
   return (
     <main className="min-h-screen p-4 lg:p-6">
       <div className="mx-auto max-w-7xl space-y-5">
         <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Marketplace SKU Crawler</h1>
-            <p className="text-sm text-slate-600">Lightweight server-side fetch crawler for Lazada and Shopee.</p>
+            <h1 className="text-3xl font-black tracking-tight">Marketplace SKU Crawler</h1>
+            <p className="mt-1 text-sm font-semibold text-muted">Lightweight server-side fetch crawler for Lazada and Shopee.</p>
           </div>
-          <div className="text-sm text-slate-500">Neon PostgreSQL + Prisma</div>
+          <div className="flex items-center gap-3 text-sm text-muted">
+            <span>Neon PostgreSQL + Prisma</span>
+            <button onClick={() => setDarkMode((value) => !value)} className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium hover:bg-surface2">
+              {darkMode ? "Light" : "Dark"}
+            </button>
+          </div>
         </header>
 
-        <div className="rounded-md border border-line bg-white">
+        <div className="rounded-md border border-line bg-surface shadow-lg shadow-slate-900/5 dark:shadow-black/25">
           <PlatformTabs platform={platform} onChange={setPlatform} />
           <div className="grid gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
             <section className="space-y-4">
-              {platform === "lazada" ? <ExtensionStatus status={extensionStatus} /> : null}
+              <ExtensionStatus platform={platform} status={extensionStatus} />
               <LinkInput value={linksText} disabled={busy} onChange={setCurrentLinksText} onStart={startCrawl} />
-              {error ? <div className="rounded-md bg-red-100 p-3 text-sm text-red-800">{error}</div> : null}
+              {error ? <div className="rounded-md bg-red-100 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
               <JobStats job={activeJob} />
               <div className="flex flex-wrap gap-2">
-                <button disabled={!activeJobId || !results.length} onClick={exportExcel} className="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">
+                <button disabled={!activeJobId || !results.length} onClick={exportExcel} className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-600">
                   Export Excel
                 </button>
-                <button disabled={!activeJobId || !isRunning} onClick={cancelJob} className="rounded-md border border-line px-3 py-2 text-sm hover:bg-slate-50">
+                <button disabled={!activeJobId || !isRunning} onClick={cancelJob} className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-semibold hover:bg-surface2">
                   Cancel job
                 </button>
-                <button disabled={!activeJobId || isRunning} onClick={retryFailed} className="rounded-md border border-line px-3 py-2 text-sm hover:bg-slate-50">
+                <button disabled={!activeJobId || isRunning} onClick={retryFailed} className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-semibold hover:bg-surface2">
                   Retry failed
                 </button>
               </div>

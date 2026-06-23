@@ -61,18 +61,18 @@ export function DatabaseMonitor({ onDataChanged }: { onDataChanged: () => void }
   }, []);
 
   return (
-    <div className="rounded-md border border-line bg-white p-4">
+    <div className="rounded-md border border-line bg-surface p-4 shadow-sm shadow-slate-900/5 dark:shadow-black/20">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold">Database Monitor</h2>
-        <button onClick={refresh} className="rounded-md border border-line px-3 py-1.5 text-sm hover:bg-slate-50">
+        <h2 className="text-base font-black">Database Monitor</h2>
+        <button onClick={refresh} className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-semibold hover:bg-surface2">
           Refresh
         </button>
       </div>
 
-      {status?.isWarning ? <div className="mt-3 rounded-md bg-amber-100 p-3 text-sm text-amber-900">Database is near the configured warning size.</div> : null}
-      {message ? <div className="mt-3 rounded-md bg-slate-100 p-3 text-sm text-slate-700">{message}</div> : null}
+      {status?.isWarning ? <div className="mt-3 rounded-md bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">Database is near the configured warning size.</div> : null}
+      {message ? <div className="mt-3 rounded-md bg-surface2 p-3 text-sm text-muted">{message}</div> : null}
 
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm font-semibold">
         <div>Used: {status ? mb(status.sizeBytes) : "-"}</div>
         <div>Limit: {status ? mb(status.limitBytes) : "-"}</div>
         <div>Usage: {status?.usagePercent ?? 0}%</div>
@@ -85,25 +85,25 @@ export function DatabaseMonitor({ onDataChanged }: { onDataChanged: () => void }
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <button disabled={busy} onClick={() => remove("/api/admin/data/logs")} className="rounded-md border border-line px-3 py-2 text-sm hover:bg-slate-50">
+        <button disabled={busy} onClick={() => remove("/api/admin/data/logs")} className="rounded-md border border-line bg-surface px-3 py-2 text-sm font-semibold hover:bg-surface2">
           Delete logs
         </button>
-        <button disabled={busy} onClick={() => remove("/api/admin/data/raw-json")} className="rounded-md border border-line px-3 py-2 text-sm hover:bg-slate-50">
+        <button disabled={busy} onClick={() => remove("/api/admin/data/raw-json")} className="rounded-md border border-line bg-surface px-3 py-2 text-sm font-semibold hover:bg-surface2">
           Delete rawJson
         </button>
-        <button disabled={busy} onClick={() => setConfirmOpen(true)} className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700">
+        <button disabled={busy} onClick={() => setConfirmOpen(true)} className="rounded-md bg-red-600 px-3 py-2 text-sm font-extrabold text-white shadow-sm hover:bg-red-700">
           Delete all data
         </button>
       </div>
 
       {confirmOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-md bg-white p-5 shadow-xl">
+          <div className="w-full max-w-md rounded-md bg-surface p-5 shadow-xl">
             <h3 className="text-lg font-semibold">Confirm data deletion</h3>
-            <p className="mt-2 text-sm text-slate-600">Type DELETE to remove crawl rows only. Tables and migrations are kept.</p>
-            <input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} className="mt-4 w-full rounded-md border border-line p-2" />
+            <p className="mt-2 text-sm text-muted">Type DELETE to remove crawl rows only. Tables and migrations are kept.</p>
+            <input value={confirmText} onChange={(event) => setConfirmText(event.target.value)} className="mt-4 w-full rounded-md border border-line bg-surface p-2" />
             <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setConfirmOpen(false)} className="rounded-md border border-line px-3 py-2 text-sm">
+              <button onClick={() => setConfirmOpen(false)} className="rounded-md border border-line px-3 py-2 text-sm hover:bg-surface2">
                 Cancel
               </button>
               <button

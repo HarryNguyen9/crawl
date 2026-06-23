@@ -18,9 +18,9 @@ export function JobStats({ job }: { job?: JobLike | null }) {
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {items.map(([label, value]) => (
-        <div key={label} className="rounded-md border border-line bg-white p-3">
-          <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-          <div className="mt-1 text-lg font-semibold">{value}</div>
+        <div key={label} className="rounded-md border border-line bg-surface p-3 shadow-sm shadow-slate-900/5 dark:shadow-black/20">
+          <div className="text-xs font-extrabold uppercase tracking-wide text-muted">{label}</div>
+          <div className="mt-2 text-2xl font-black leading-none">{value}</div>
         </div>
       ))}
     </div>

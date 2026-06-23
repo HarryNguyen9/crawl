@@ -12,6 +12,12 @@ let state = {
   pollTimer: null
 };
 
+const DEFAULT_WEB_APP_URL = "https://crawl-pi.vercel.app";
+
+function normalizeAppUrl(value) {
+  return (value || DEFAULT_WEB_APP_URL).trim().replace(/\/+$/, "");
+}
+
 function storageGet(keys) {
   return chrome.storage.local.get(keys);
 }
@@ -48,6 +54,33 @@ async function register() {
   state.lastHeartbeat = new Date().toISOString();
   await storageSet({ clientId: state.clientId });
   return data.clientId;
+}
+
+async function openOrFocusWebApp() {
+  if (!state.appUrl) return;
+  const tabs = await chrome.tabs.query({ url: `${state.appUrl}/*` }).catch(() => []);
+  const existing = tabs[0];
+  if (existing?.id) {
+    if (existing.windowId !== undefined) {
+      await chrome.windows.update(existing.windowId, { focused: true }).catch(() => undefined);
+    }
+    await chrome.tabs.update(existing.id, { active: true }).catch(() => undefined);
+    return;
+  }
+  await chrome.tabs.create({ url: state.appUrl, active: true }).catch(() => undefined);
+}
+
+async function openLazadaLogin() {
+  const loginUrl = "https://member.lazada.vn/user/login?redirect=https%3A%2F%2Fwww.lazada.vn%2Fcustomer%2Faccount%2F";
+  if (state.loginTabId) {
+    await chrome.tabs.update(state.loginTabId, { url: loginUrl, active: true }).catch(async () => {
+      const loginTab = await chrome.tabs.create({ url: loginUrl, active: true });
+      state.loginTabId = loginTab.id;
+    });
+  } else {
+    const loginTab = await chrome.tabs.create({ url: loginUrl, active: true });
+    state.loginTabId = loginTab.id;
+  }
 }
 
 async function getLazadaSessionCookies() {
@@ -122,17 +155,7 @@ async function requireLazadaLoginBeforeCrawl() {
   state.statusMessage = `Please login to Lazada: ${result.reason}`;
   state.currentLink = "Login required";
   state.enabled = false;
-
-  const loginUrl = "https://member.lazada.vn/user/login?redirect=https%3A%2F%2Fwww.lazada.vn%2Fcustomer%2Faccount%2F";
-  if (state.loginTabId) {
-    await chrome.tabs.update(state.loginTabId, { url: loginUrl, active: true }).catch(async () => {
-      const loginTab = await chrome.tabs.create({ url: loginUrl, active: true });
-      state.loginTabId = loginTab.id;
-    });
-  } else {
-    const loginTab = await chrome.tabs.create({ url: loginUrl, active: true });
-    state.loginTabId = loginTab.id;
-  }
+  await openLazadaLogin();
   return false;
 }
 
@@ -401,11 +424,39 @@ function estimateShopeeFinalPrice(currentPrice, shopVoucherText, platformVoucher
   const discount = shop.amount + platform.amount;
   return {
     finalPrice: Math.max(0, currentPrice - discount),
-    note: `Estimated from browser voucher text, not checkout-guaranteed. Shop: ${shop.label} (-${shop.amount}); Platform: ${platform.label} (-${platform.amount})`
+    note: "Estimated",
+    detail: `Estimated from browser voucher text, not checkout-guaranteed. Shop: ${shop.label} (-${shop.amount}); Platform: ${platform.label} (-${platform.amount})`
   };
 }
 
 async function fetchShopeeInPage(shopId, itemId) {
+  function findShopeeItemRecursive(value, seen = new Set()) {
+    if (!value || typeof value !== "object" || seen.has(value)) return null;
+    seen.add(value);
+
+    if (
+      (String(value.itemid || value.item_id || "") === String(itemId) || value.itemid || value.item_id) &&
+      (value.name || value.title) &&
+      (value.price || value.price_before_discount || Array.isArray(value.models))
+    ) {
+      return value;
+    }
+
+    for (const key of Object.keys(value)) {
+      const result = findShopeeItemRecursive(value[key], seen);
+      if (result) return result;
+    }
+    return null;
+  }
+
+  function jsonPreview(value) {
+    try {
+      return JSON.stringify(value).slice(0, 500);
+    } catch (_error) {
+      return "[unserializable]";
+    }
+  }
+
   try {
     const response = await fetch(`https://shopee.vn/api/v4/pdp/get_pc?item_id=${itemId}&shop_id=${shopId}`, {
       credentials: "include",
@@ -416,13 +467,22 @@ async function fetchShopeeInPage(shopId, itemId) {
       }
     });
     const json = await response.json().catch(() => ({}));
-    let item = json?.data?.item || window.__PRELOADED_STATE__?.item;
+    let item =
+      json?.data?.item ||
+      window.__PRELOADED_STATE__?.item ||
+      findShopeeItemRecursive(window.__PRELOADED_STATE__) ||
+      findShopeeItemRecursive(window.__INITIAL_STATE__) ||
+      findShopeeItemRecursive(window.__NEXT_DATA__);
     if (!item) {
       const bodyText = document.body?.innerText || "";
       if (response.status === 403 || /captcha|verify|robot|blocked/i.test(bodyText)) {
-        return { status: "failed", error: `Shopee PDP API blocked with HTTP ${response.status}` };
+        return { status: "failed", retryable: true, error: `Shopee PDP API blocked with HTTP ${response.status}; payload=${jsonPreview(json)}` };
       }
-      return { status: "failed", error: "Shopee PDP API returned no item data" };
+      return {
+        status: "failed",
+        retryable: true,
+        error: `Shopee PDP API returned no item data (HTTP ${response.status}; title=${document.title}; payload=${jsonPreview(json)})`
+      };
     }
 
     const voucherLabels = [];
@@ -475,7 +535,7 @@ async function fetchShopeeInPage(shopId, itemId) {
       voucherText: voucherLabels.join(" | ")
     };
   } catch (error) {
-    return { status: "failed", error: error instanceof Error ? error.message : String(error) };
+    return { status: "failed", retryable: true, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -502,14 +562,22 @@ async function crawlShopee(link) {
 
   try {
     await waitForTabComplete(tab.id, 45000);
-    await delay(2500);
-    const injected = await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      world: "MAIN",
-      args: [ids.shopId, ids.itemId],
-      func: fetchShopeeInPage
-    });
-    const result = injected?.[0]?.result || { status: "failed", error: "No Shopee injection result" };
+    const startedAt = Date.now();
+    let result = { status: "failed", retryable: true, error: "No Shopee injection result" };
+
+    while (Date.now() - startedAt < 45000) {
+      await delay(1500);
+      const injected = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        world: "MAIN",
+        args: [ids.shopId, ids.itemId],
+        func: fetchShopeeInPage
+      });
+      result = injected?.[0]?.result || result;
+      if (result.status === "success") break;
+      if (!result.retryable) break;
+    }
+
     if (result.status !== "success") return result;
 
     const item = result.item;
@@ -530,7 +598,7 @@ async function crawlShopee(link) {
         couponDiscount: 0,
         salePrice: currentPrice,
         voucherNote: estimate.note,
-        discountText: result.voucherText || "",
+        discountText: result.voucherText || estimate.detail,
         rawJson: model || item
       };
     });
@@ -547,8 +615,21 @@ async function processNextLink() {
   if (!state.enabled || state.busy || !state.clientId) return;
   state.busy = true;
   try {
-    const link = await apiFetch(`/api/extension/next-link?clientId=${encodeURIComponent(state.clientId)}`);
+    let link = await apiFetch(`/api/extension/next-link?clientId=${encodeURIComponent(state.clientId)}&platform=shopee`);
     state.lastHeartbeat = new Date().toISOString();
+
+    if (!link || !link.linkId) {
+      const lazadaPending = await apiFetch(`/api/extension/next-link?clientId=${encodeURIComponent(state.clientId)}&platform=lazada&peek=true`);
+      if (!lazadaPending || !lazadaPending.linkId) {
+        state.currentLink = "";
+        return;
+      }
+
+      const loggedIn = await requireLazadaLoginBeforeCrawl();
+      if (!loggedIn) return;
+      link = await apiFetch(`/api/extension/next-link?clientId=${encodeURIComponent(state.clientId)}&platform=lazada`);
+    }
+
     if (!link || !link.linkId) {
       state.currentLink = "";
       return;
@@ -558,8 +639,6 @@ async function processNextLink() {
     await storageSet({ currentLink: state.currentLink });
     let result;
     if (link.platform === "lazada") {
-      const loggedIn = await requireLazadaLoginBeforeCrawl();
-      if (!loggedIn) return;
       result = await crawlLazada(link);
     } else if (link.platform === "shopee") {
       result = await crawlShopee(link);
@@ -596,7 +675,7 @@ function schedulePoll() {
 
 async function connect(input = {}) {
   const saved = await storageGet(["appUrl", "token", "clientId"]);
-  state.appUrl = (input.appUrl || saved.appUrl || "http://localhost:3000").replace(/\/+$/, "");
+  state.appUrl = normalizeAppUrl(input.appUrl || saved.appUrl);
   state.token = input.token || saved.token || "";
   state.clientId = saved.clientId || state.clientId || "";
   state.enabled = true;
@@ -604,10 +683,7 @@ async function connect(input = {}) {
   state.statusMessage = "Connected";
   await storageSet({ appUrl: state.appUrl, token: state.token });
   await register();
-  const loggedIn = await requireLazadaLoginBeforeCrawl();
-  if (!loggedIn) {
-    return { ...state, pollTimer: undefined };
-  }
+  await openOrFocusWebApp();
   schedulePoll();
   return { ...state, pollTimer: undefined };
 }
@@ -639,7 +715,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 chrome.runtime.onInstalled.addListener(async () => {
   const saved = await storageGet(["appUrl", "token", "clientId"]);
-  state.appUrl = saved.appUrl || "";
+  state.appUrl = normalizeAppUrl(saved.appUrl);
   state.token = saved.token || "";
   state.clientId = saved.clientId || "";
 });

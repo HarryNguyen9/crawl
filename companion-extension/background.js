@@ -348,13 +348,32 @@ function parseLazadaInPage() {
       parseVnd(priceInfo.salePrice?.noSymbolPriceText) ||
       0;
 
-    const finalPrice = parsePriceValue(priceInfo.coupon?.priceNumber) || parseVnd(priceInfo.coupon?.priceText) || salePrice;
+    const finalPrice =
+      parsePriceValue(priceInfo.coupon?.priceNumber) ||
+      parseVnd(priceInfo.coupon?.priceText) ||
+      salePrice ||
+      originalPrice ||
+      0;
 
-    const promotionDiscount = Math.max(0, originalPrice - salePrice);
-    const voucherDiscount = Math.max(0, salePrice - finalPrice);
-    const couponDiscount = Math.max(0, originalPrice - finalPrice);
-    const currentPrice = finalPrice && voucherDiscount ? finalPrice + voucherDiscount : salePrice || finalPrice || originalPrice || 0;
+      // Logic giống dashboard(7).js:
+      // lấy số trong coupon.desc rồi cộng với finalPrice
+    let couponDiscountAmount = 0;
 
+    if (priceInfo.coupon?.desc) {
+      const cleanedDesc = String(priceInfo.coupon.desc).replace(/[^0-9]/g, "");
+      if (cleanedDesc) couponDiscountAmount = Number(cleanedDesc);
+    }
+
+    const currentPrice =
+      finalPrice + couponDiscountAmount ||
+      salePrice ||
+      finalPrice ||
+      originalPrice ||
+      0;
+
+    const couponDiscount = couponDiscountAmount || Math.max(0, currentPrice - finalPrice);
+    const voucherDiscount = Math.max(0, currentPrice - finalPrice);
+    const promotionDiscount = Math.max(0, originalPrice - currentPrice);
     rows.push({
       productName,
       skuId,

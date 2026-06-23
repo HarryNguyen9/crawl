@@ -18,6 +18,7 @@ let state = {
 };
 
 const DEFAULT_WEB_APP_URL = "https://crawl-pi.vercel.app";
+const POLL_ALARM_NAME = "tmall-companion-poll";
 
 function normalizeAppUrl(value) {
   return (value || DEFAULT_WEB_APP_URL).trim().replace(/\/+$/, "");
@@ -184,13 +185,22 @@ async function requireLazadaLoginBeforeCrawl() {
   state.loginRequired = true;
   state.statusMessage = `Please login to Lazada: ${result.reason}`;
   state.currentLink = "Login required";
-  state.enabled = false;
+  await storageSet({ currentLink: state.currentLink, enabled: state.enabled });
   await openLazadaLogin();
   return false;
 }
 
 async function ensureLazadaLoginBeforeCrawl() {
   if (state.lazadaLoginConfirmed) return true;
+  if (state.loginRequired) {
+    const cookies = await getLazadaSessionCookies();
+    const hasStrongCookie = cookies.some((cookie) => /lzd_uid|lzd_uid_v2/i.test(cookie.name) && cookie.value);
+    if (!hasStrongCookie) return false;
+    state.loginRequired = false;
+    state.lazadaLoginConfirmed = true;
+    state.statusMessage = "Lazada login confirmed";
+    return true;
+  }
   if (state.lazadaLoginPromise) return state.lazadaLoginPromise;
   state.lazadaLoginPromise = requireLazadaLoginBeforeCrawl().finally(() => {
     state.lazadaLoginPromise = null;
@@ -769,6 +779,14 @@ function schedulePoll() {
   }, 3000);
 }
 
+async function ensurePollAlarm() {
+  if (!state.enabled) {
+    await chrome.alarms.clear(POLL_ALARM_NAME).catch(() => undefined);
+    return;
+  }
+  await chrome.alarms.create(POLL_ALARM_NAME, { periodInMinutes: 0.5 }).catch(() => undefined);
+}
+
 function scheduleHeartbeat() {
   if (state.heartbeatTimer) clearInterval(state.heartbeatTimer);
   if (!state.enabled) return;
@@ -787,13 +805,14 @@ async function connect(input = {}) {
   state.loginRequired = false;
   state.currentLinks = {};
   state.statusMessage = "Connected";
-  await storageSet({ appUrl: state.appUrl, token: state.token, maxTabs: state.maxTabs });
+  await storageSet({ appUrl: state.appUrl, token: state.token, maxTabs: state.maxTabs, enabled: true });
   await register();
   await sendHeartbeat().catch(() => undefined);
   await openOrFocusWebApp();
   scheduleHeartbeat();
   fillCrawlerSlots();
   schedulePoll();
+  await ensurePollAlarm();
   return { ...state, pollTimer: undefined, heartbeatTimer: undefined };
 }
 
@@ -807,8 +826,27 @@ async function stop() {
   state.pollTimer = null;
   if (state.heartbeatTimer) clearInterval(state.heartbeatTimer);
   state.heartbeatTimer = null;
-  await storageSet({ currentLink: "" });
+  await storageSet({ currentLink: "", enabled: false });
+  await ensurePollAlarm();
   return { ...state, pollTimer: undefined, heartbeatTimer: undefined };
+}
+
+async function initializeFromStorage({ resume = true } = {}) {
+  const saved = await storageGet(["appUrl", "token", "clientId", "maxTabs", "enabled"]);
+  state.appUrl = normalizeAppUrl(saved.appUrl);
+  state.token = saved.token || "";
+  state.clientId = saved.clientId || "";
+  state.maxTabs = normalizeMaxTabs(saved.maxTabs);
+  state.enabled = Boolean(saved.enabled && state.token);
+  if (state.enabled && resume) {
+    state.statusMessage = "Connected";
+    await register().catch(() => undefined);
+    await sendHeartbeat().catch(() => undefined);
+    scheduleHeartbeat();
+    fillCrawlerSlots();
+    schedulePoll();
+    await ensurePollAlarm();
+  }
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -827,9 +865,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 chrome.runtime.onInstalled.addListener(async () => {
-  const saved = await storageGet(["appUrl", "token", "clientId", "maxTabs"]);
-  state.appUrl = normalizeAppUrl(saved.appUrl);
-  state.token = saved.token || "";
-  state.clientId = saved.clientId || "";
-  state.maxTabs = normalizeMaxTabs(saved.maxTabs);
+  await initializeFromStorage({ resume: true });
 });
+
+chrome.runtime.onStartup.addListener(async () => {
+  await initializeFromStorage({ resume: true });
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name !== POLL_ALARM_NAME) return;
+  initializeFromStorage({ resume: true }).catch((error) => console.warn("TMall Companion alarm resume failed", error));
+});
+
+initializeFromStorage({ resume: true }).catch(() => undefined);

@@ -355,8 +355,6 @@ function parseLazadaInPage() {
       originalPrice ||
       0;
 
-      // Logic giống dashboard(7).js:
-      // lấy số trong coupon.desc rồi cộng với finalPrice
     let couponDiscountAmount = 0;
 
     if (priceInfo.coupon?.desc) {
@@ -371,9 +369,9 @@ function parseLazadaInPage() {
       originalPrice ||
       0;
 
-    const couponDiscount = couponDiscountAmount || Math.max(0, currentPrice - finalPrice);
-    const voucherDiscount = Math.max(0, currentPrice - finalPrice);
-    const promotionDiscount = Math.max(0, originalPrice - currentPrice);
+    const couponDiscount = couponDiscountAmount || Math.max(0, originalPrice - finalPrice);
+    const voucherDiscount = Math.max(0, salePrice - finalPrice);
+    const promotionDiscount = Math.max(0, couponDiscount - voucherDiscount);
     rows.push({
       productName,
       skuId,

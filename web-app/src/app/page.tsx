@@ -189,12 +189,12 @@ export default function Home() {
   }, [darkMode]);
 
   return (
-    <main className="min-h-screen p-4 lg:p-6">
-      <div className="mx-auto max-w-7xl space-y-5">
+    <main className="min-h-screen p-3 lg:p-5">
+      <div className="w-full space-y-5">
         <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-3xl font-black tracking-tight">Marketplace SKU Crawler</h1>
-            <p className="mt-1 text-sm font-semibold text-muted">Lightweight server-side fetch crawler for Lazada and Shopee.</p>
+            <h1 className="text-3xl font-semibold tracking-tight">Marketplace SKU Crawler</h1>
+            <p className="mt-1 text-sm font-normal text-muted">Lightweight server-side fetch crawler for Lazada and Shopee.</p>
           </div>
           <div className="flex items-center gap-3 text-sm text-muted">
             <span>Neon PostgreSQL + Prisma</span>
@@ -204,22 +204,22 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="rounded-md border border-line bg-surface shadow-lg shadow-slate-900/5 dark:shadow-black/25">
+        <div className="rounded-md border border-line bg-surface shadow-md shadow-slate-900/5 dark:shadow-black/20">
           <PlatformTabs platform={platform} onChange={setPlatform} />
-          <div className="grid gap-5 p-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid gap-5 p-4 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
             <section className="space-y-4">
               <ExtensionStatus platform={platform} status={extensionStatus} />
               <LinkInput value={linksText} disabled={busy} onChange={setCurrentLinksText} onStart={startCrawl} />
               {error ? <div className="rounded-md bg-red-100 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
               <JobStats job={activeJob} />
               <div className="flex flex-wrap gap-2">
-                <button disabled={!activeJobId || !results.length} onClick={exportExcel} className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-600">
+                <button disabled={!activeJobId || !results.length} onClick={exportExcel} className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-600">
                   Export Excel
                 </button>
-                <button disabled={!activeJobId || !isRunning} onClick={cancelJob} className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-semibold hover:bg-surface2">
+                <button disabled={!activeJobId || !isRunning} onClick={cancelJob} className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium hover:bg-surface2">
                   Cancel job
                 </button>
-                <button disabled={!activeJobId || isRunning} onClick={retryFailed} className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-semibold hover:bg-surface2">
+                <button disabled={!activeJobId || isRunning} onClick={retryFailed} className="rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium hover:bg-surface2">
                   Retry failed
                 </button>
               </div>

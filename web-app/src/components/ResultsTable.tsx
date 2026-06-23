@@ -43,7 +43,7 @@ export function ResultsTable({ platform, rows }: { platform: Platform; rows: Row
           <thead className="sticky top-0 bg-surface2">
             <tr>
               {columns.map((column) => (
-                <th key={column} className="whitespace-nowrap border-b border-line px-3 py-2.5 text-xs font-black uppercase tracking-wide">
+                <th key={column} className="whitespace-nowrap border-b border-line px-3 py-2.5 text-xs font-medium tracking-wide">
                   {labels[column]}
                 </th>
               ))}

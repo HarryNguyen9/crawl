@@ -23,9 +23,9 @@ export function ExtensionStatus({ platform, status }: { platform: Platform; stat
   const label = platform === "lazada" ? "Lazada" : "Shopee";
 
   return (
-    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 shadow-sm shadow-amber-900/10 dark:border-amber-600 dark:bg-amber-900/40 dark:text-amber-50">
-      <div className="font-black">{label} cần Companion Extension để lấy giá chính xác.</div>
-      <div className="mt-3 grid gap-2 text-xs font-bold sm:grid-cols-3">
+    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 shadow-sm shadow-amber-900/10 dark:border-amber-600 dark:bg-amber-900/35 dark:text-amber-50">
+      <div className="font-medium">{label} cần Companion Extension để lấy giá chính xác.</div>
+      <div className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
         <div>
           <span className="text-amber-700 dark:text-amber-300">Extension:</span> {connected ? "connected" : "disconnected"}
         </div>

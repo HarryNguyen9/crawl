@@ -63,8 +63,8 @@ export function DatabaseMonitor({ onDataChanged }: { onDataChanged: () => void }
   return (
     <div className="rounded-md border border-line bg-surface p-4 shadow-sm shadow-slate-900/5 dark:shadow-black/20">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-black">Database Monitor</h2>
-        <button onClick={refresh} className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-semibold hover:bg-surface2">
+        <h2 className="text-base font-medium">Database Monitor</h2>
+        <button onClick={refresh} className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium hover:bg-surface2">
           Refresh
         </button>
       </div>
@@ -72,7 +72,7 @@ export function DatabaseMonitor({ onDataChanged }: { onDataChanged: () => void }
       {status?.isWarning ? <div className="mt-3 rounded-md bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">Database is near the configured warning size.</div> : null}
       {message ? <div className="mt-3 rounded-md bg-surface2 p-3 text-sm text-muted">{message}</div> : null}
 
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm font-semibold">
+      <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div>Used: {status ? mb(status.sizeBytes) : "-"}</div>
         <div>Limit: {status ? mb(status.limitBytes) : "-"}</div>
         <div>Usage: {status?.usagePercent ?? 0}%</div>
@@ -85,13 +85,13 @@ export function DatabaseMonitor({ onDataChanged }: { onDataChanged: () => void }
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <button disabled={busy} onClick={() => remove("/api/admin/data/logs")} className="rounded-md border border-line bg-surface px-3 py-2 text-sm font-semibold hover:bg-surface2">
+        <button disabled={busy} onClick={() => remove("/api/admin/data/logs")} className="rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium hover:bg-surface2">
           Delete logs
         </button>
-        <button disabled={busy} onClick={() => remove("/api/admin/data/raw-json")} className="rounded-md border border-line bg-surface px-3 py-2 text-sm font-semibold hover:bg-surface2">
+        <button disabled={busy} onClick={() => remove("/api/admin/data/raw-json")} className="rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium hover:bg-surface2">
           Delete rawJson
         </button>
-        <button disabled={busy} onClick={() => setConfirmOpen(true)} className="rounded-md bg-red-600 px-3 py-2 text-sm font-extrabold text-white shadow-sm hover:bg-red-700">
+        <button disabled={busy} onClick={() => setConfirmOpen(true)} className="rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700">
           Delete all data
         </button>
       </div>

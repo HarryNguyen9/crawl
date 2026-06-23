@@ -28,7 +28,7 @@ body {
   margin: 0;
   background: rgb(var(--color-panel));
   color: rgb(var(--color-ink));
-  font-weight: 500;
+  font-weight: 400;
 }
 
 button:disabled {

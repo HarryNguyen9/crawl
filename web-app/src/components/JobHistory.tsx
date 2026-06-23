@@ -10,13 +10,21 @@ type Job = {
   _count?: { skus: number };
 };
 
+function titleCase(value: string) {
+  return value
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
 export function JobHistory({ jobs, activeJobId, onSelect }: { jobs: Job[]; activeJobId?: string | null; onSelect: (id: string) => void }) {
   return (
     <div className="rounded-md border border-line bg-surface shadow-sm shadow-slate-900/5 dark:shadow-black/20">
-      <div className="border-b border-line bg-surface2 px-3 py-2.5 text-sm font-black">Recent jobs</div>
+      <div className="border-b border-line bg-surface2 px-3 py-2.5 text-sm font-medium">Recent jobs</div>
       <div className="max-h-72 overflow-auto">
         {jobs.length === 0 ? (
-          <div className="px-3 py-6 text-sm font-semibold text-muted">No jobs yet.</div>
+          <div className="px-3 py-6 text-sm text-muted">No jobs yet.</div>
         ) : (
           jobs.map((job) => (
             <button
@@ -27,7 +35,7 @@ export function JobHistory({ jobs, activeJobId, onSelect }: { jobs: Job[]; activ
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="font-extrabold">{job.status}</span>
+                <span className="font-medium">{titleCase(job.status)}</span>
                 <span className="text-xs text-muted">{job.processedLinks}/{job.totalLinks}</span>
               </div>
               <div className="mt-1 truncate text-xs text-muted">{job.id}</div>

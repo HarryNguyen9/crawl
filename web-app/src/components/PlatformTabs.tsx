@@ -9,7 +9,7 @@ export function PlatformTabs({ platform, onChange }: { platform: Platform; onCha
         <button
           key={item}
           onClick={() => onChange(item)}
-          className={`px-4 py-3 text-sm font-extrabold capitalize ${
+          className={`px-4 py-3 text-sm font-medium capitalize ${
             platform === item ? "border-b-2 border-ink bg-surface text-ink" : "text-muted hover:bg-surface/70 hover:text-ink"
           }`}
         >

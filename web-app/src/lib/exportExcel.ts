@@ -21,6 +21,8 @@ export async function buildJobWorkbook(jobId: string) {
           "Current Price": row.currentPrice,
           "Final Price": row.finalPrice,
           "Coupon Discount": row.couponDiscount,
+          "Promotion Discount": row.promotionDiscount,
+          "Voucher Discount": row.voucherDiscount,
           URL: row.url
         }))
       : rows.map((row) => ({

@@ -1,6 +1,5 @@
 const appUrlInput = document.getElementById("appUrl");
 const tokenInput = document.getElementById("token");
-const maxTabsInput = document.getElementById("maxTabs");
 const statusEl = document.getElementById("status");
 const connectButton = document.getElementById("connect");
 const stopButton = document.getElementById("stop");
@@ -23,21 +22,18 @@ function renderStatus(state) {
 }
 
 async function loadState() {
-  const saved = await chrome.storage.local.get(["appUrl", "token", "maxTabs"]);
+  const saved = await chrome.storage.local.get(["appUrl", "token"]);
   appUrlInput.value = saved.appUrl || DEFAULT_WEB_APP_URL;
   tokenInput.value = saved.token || "";
-  maxTabsInput.value = String(saved.maxTabs || 1);
   const state = await chrome.runtime.sendMessage({ type: "STATUS" });
-  if (state?.maxTabs) maxTabsInput.value = String(state.maxTabs);
   renderStatus(state || {});
 }
 
 connectButton.addEventListener("click", async () => {
   const appUrl = normalizeAppUrl(appUrlInput.value);
   const token = tokenInput.value.trim();
-  const maxTabs = Number(maxTabsInput.value || 1);
-  await chrome.storage.local.set({ appUrl, token, maxTabs });
-  const state = await chrome.runtime.sendMessage({ type: "CONNECT", appUrl, token, maxTabs });
+  await chrome.storage.local.set({ appUrl, token });
+  const state = await chrome.runtime.sendMessage({ type: "CONNECT", appUrl, token });
   renderStatus(state || {});
 });
 

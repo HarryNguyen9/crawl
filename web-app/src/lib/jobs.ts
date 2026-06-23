@@ -2,7 +2,7 @@ import { CrawlJobStatus, CrawlLinkStatus, Platform } from "@prisma/client";
 import { prisma } from "./prisma";
 import { dedupeLinks, validatePlatformLinks } from "./validators";
 
-export async function createCrawlJob(platform: Platform, rawLinks: string[]) {
+export async function createCrawlJob(platform: Platform, rawLinks: string[], maxTabs = 1) {
   const links = dedupeLinks(rawLinks);
   const invalidLinks = validatePlatformLinks(platform, links);
 
@@ -13,6 +13,7 @@ export async function createCrawlJob(platform: Platform, rawLinks: string[]) {
   const job = await prisma.crawlJob.create({
     data: {
       platform,
+      maxTabs,
       totalLinks: links.length,
       links: {
         create: links.map((url) => ({
@@ -23,7 +24,7 @@ export async function createCrawlJob(platform: Platform, rawLinks: string[]) {
       logs: {
         create: {
           level: "info",
-          message: `Created ${platform} crawl job with ${links.length} links`
+          message: `Created ${platform} crawl job with ${links.length} links and max ${maxTabs} tab(s)`
         }
       }
     }

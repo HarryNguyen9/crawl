@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   try {
     const body = createJobSchema.parse(await request.json());
-    const job = await createCrawlJob(body.platform, body.links);
+    const job = await createCrawlJob(body.platform, body.links, body.maxTabs);
     return NextResponse.json({ jobId: job.id });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Invalid request";

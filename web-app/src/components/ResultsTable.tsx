@@ -18,7 +18,7 @@ function simplifyVoucherNote(value: unknown) {
 export function ResultsTable({ platform, rows }: { platform: Platform; rows: Row[] }) {
   const columns =
     platform === "lazada"
-      ? ["productName", "skuId", "variantName", "originalPrice", "currentPrice", "finalPrice", "couponDiscount", "url"]
+      ? ["productName", "skuId", "variantName", "originalPrice", "currentPrice", "finalPrice", "couponDiscount", "promotionDiscount", "voucherDiscount", "url"]
       : ["productName", "shopId", "itemId", "variantName", "originalPrice", "currentPrice", "finalPrice", "discountText", "voucherNote", "url"];
 
   const labels: Record<string, string> = {
@@ -31,6 +31,8 @@ export function ResultsTable({ platform, rows }: { platform: Platform; rows: Row
     currentPrice: "Current Price",
     finalPrice: "Final Price",
     couponDiscount: "Coupon Discount",
+    promotionDiscount: "Promotion Discount",
+    voucherDiscount: "Voucher Discount",
     discountText: "Voucher",
     voucherNote: "Voucher Note",
     url: "URL"
@@ -60,7 +62,7 @@ export function ResultsTable({ platform, rows }: { platform: Platform; rows: Row
               rows.map((row) => (
                 <tr key={row.id} className="border-b border-line hover:bg-surface2/60">
                   {columns.map((column) => {
-                    const isPrice = ["originalPrice", "currentPrice", "finalPrice", "couponDiscount"].includes(column);
+                    const isPrice = ["originalPrice", "currentPrice", "finalPrice", "couponDiscount", "promotionDiscount", "voucherDiscount"].includes(column);
                     return (
                       <td key={column} className="max-w-xs truncate px-3 py-2" title={String(row[column] ?? "")}>
                         {isPrice ? money(row[column]) : column === "voucherNote" ? simplifyVoucherNote(row[column]) : row[column] ?? ""}

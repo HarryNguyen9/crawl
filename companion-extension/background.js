@@ -38,8 +38,8 @@ function delay(ms) {
 
 function normalizeMaxTabs(value) {
   const numeric = Number(value || 1);
-  if ([1, 3, 5].includes(numeric)) return numeric;
-  return 1;
+  if (!Number.isFinite(numeric)) return 1;
+  return Math.max(1, Math.min(20, Math.floor(numeric)));
 }
 
 function refreshCurrentLink() {
@@ -350,9 +350,10 @@ function parseLazadaInPage() {
 
     const finalPrice = parsePriceValue(priceInfo.coupon?.priceNumber) || parseVnd(priceInfo.coupon?.priceText) || salePrice;
 
-    const couponDiscount = parseVnd(priceInfo.coupon?.desc || "");
-
-    const currentPrice = finalPrice && couponDiscount ? finalPrice + couponDiscount : salePrice || finalPrice || originalPrice || 0;
+    const promotionDiscount = Math.max(0, originalPrice - salePrice);
+    const voucherDiscount = Math.max(0, salePrice - finalPrice);
+    const couponDiscount = Math.max(0, originalPrice - finalPrice);
+    const currentPrice = finalPrice && voucherDiscount ? finalPrice + voucherDiscount : salePrice || finalPrice || originalPrice || 0;
 
     rows.push({
       productName,
@@ -363,6 +364,8 @@ function parseLazadaInPage() {
       currentPrice,
       finalPrice,
       couponDiscount,
+      promotionDiscount,
+      voucherDiscount,
       salePrice,
       discountText: priceInfo.coupon?.desc || priceInfo.discount || null,
       rawJson: sku
@@ -708,8 +711,10 @@ async function processNextLink(slotId) {
     link = await claimNextLink();
     if (!link?.linkId) return false;
 
+    state.maxTabs = normalizeMaxTabs(link.maxTabs);
     state.currentLinks[slotId] = link.url;
     await refreshCurrentLink();
+    setTimeout(fillCrawlerSlots, 0);
     let result;
     if (link.platform === "lazada") {
       result = await crawlLazada(link);
@@ -754,7 +759,9 @@ async function processNextLink(slotId) {
 
 function fillCrawlerSlots() {
   if (!state.enabled || !state.clientId) return;
-  while (state.activeCrawls < state.maxTabs) {
+  const hasActiveWork = Object.keys(state.currentLinks).length > 0;
+  const targetTabs = hasActiveWork ? state.maxTabs : 1;
+  while (state.activeCrawls < targetTabs) {
     const slotId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     let handledLink = false;
     state.activeCrawls += 1;
@@ -796,16 +803,16 @@ function scheduleHeartbeat() {
 }
 
 async function connect(input = {}) {
-  const saved = await storageGet(["appUrl", "token", "clientId", "maxTabs"]);
+  const saved = await storageGet(["appUrl", "token", "clientId"]);
   state.appUrl = normalizeAppUrl(input.appUrl || saved.appUrl);
   state.token = input.token || saved.token || "";
   state.clientId = saved.clientId || state.clientId || "";
-  state.maxTabs = normalizeMaxTabs(input.maxTabs || saved.maxTabs);
+  state.maxTabs = 1;
   state.enabled = true;
   state.loginRequired = false;
   state.currentLinks = {};
   state.statusMessage = "Connected";
-  await storageSet({ appUrl: state.appUrl, token: state.token, maxTabs: state.maxTabs, enabled: true });
+  await storageSet({ appUrl: state.appUrl, token: state.token, enabled: true });
   await register();
   await sendHeartbeat().catch(() => undefined);
   await openOrFocusWebApp();
@@ -832,11 +839,11 @@ async function stop() {
 }
 
 async function initializeFromStorage({ resume = true } = {}) {
-  const saved = await storageGet(["appUrl", "token", "clientId", "maxTabs", "enabled"]);
+  const saved = await storageGet(["appUrl", "token", "clientId", "enabled"]);
   state.appUrl = normalizeAppUrl(saved.appUrl);
   state.token = saved.token || "";
   state.clientId = saved.clientId || "";
-  state.maxTabs = normalizeMaxTabs(saved.maxTabs);
+  state.maxTabs = 1;
   state.enabled = Boolean(saved.enabled && state.token);
   if (state.enabled && resume) {
     state.statusMessage = "Connected";

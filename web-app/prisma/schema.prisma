@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Platform {
@@ -38,6 +39,7 @@ model CrawlJob {
   platform       Platform
   status         CrawlJobStatus @default(pending)
   totalLinks     Int            @default(0)
+  maxTabs        Int            @default(1)
   processedLinks Int            @default(0)
   successCount   Int            @default(0)
   failedCount    Int            @default(0)
@@ -86,6 +88,8 @@ model ProductSku {
   currentPrice   Float     @default(0)
   finalPrice     Float     @default(0)
   couponDiscount Float     @default(0)
+  promotionDiscount Float  @default(0)
+  voucherDiscount   Float  @default(0)
   salePrice      Float     @default(0)
   voucherNote    String?
   discountText   String?

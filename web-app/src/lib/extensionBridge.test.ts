@@ -19,6 +19,8 @@ test("normalizeExtensionRows coerces prices and stores rawJson strings", () => {
       currentPrice: "783000",
       finalPrice: "625045",
       couponDiscount: "157955",
+      promotionDiscount: "30000",
+      voucherDiscount: "157955",
       salePrice: "783000",
       discountText: "coupon",
       rawJson: { skuId: 123 }
@@ -31,6 +33,8 @@ test("normalizeExtensionRows coerces prices and stores rawJson strings", () => {
   assert.equal(rows[0].currentPrice, 783000);
   assert.equal(rows[0].finalPrice, 625045);
   assert.equal(rows[0].couponDiscount, 157955);
+  assert.equal(rows[0].promotionDiscount, 30000);
+  assert.equal(rows[0].voucherDiscount, 157955);
   assert.equal(rows[0].rawJson, JSON.stringify({ skuId: 123 }));
 });
 

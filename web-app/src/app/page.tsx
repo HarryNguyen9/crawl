@@ -17,6 +17,7 @@ type Job = {
   platform: Platform;
   status: string;
   totalLinks: number;
+  maxTabs?: number;
   processedLinks: number;
   failedCount?: number;
   createdAt: string;
@@ -74,6 +75,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [startDialogOpen, setStartDialogOpen] = useState(false);
   const [completionDialog, setCompletionDialog] = useState<{ jobId: string; status: string; totalLinks: number; processedLinks: number; failedCount?: number } | null>(null);
   const lastStatusByJob = useRef<Record<string, string>>({});
 
@@ -151,27 +153,35 @@ export default function Home() {
     }
   }
 
-  async function startCrawl() {
-    setError(null);
-    const links = linksText
+  function parsedLinks() {
+    return linksText
       .split(/\r?\n/)
       .map((link) => link.trim())
       .filter(Boolean);
+  }
 
-    if (links.length === 0) {
+  function openStartDialog() {
+    setError(null);
+    if (parsedLinks().length === 0) {
       setError("Paste at least one product link.");
       return;
     }
+    setStartDialogOpen(true);
+  }
 
+  async function startCrawl(maxTabs: number) {
+    setError(null);
+    const links = parsedLinks();
     setBusy(true);
     try {
       const response = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ platform, links })
+        body: JSON.stringify({ platform, links, maxTabs })
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to create job");
+      setStartDialogOpen(false);
       setPlatformActiveJobId(platform, data.jobId);
       setPlatformResults(platform, []);
       setPlatformFailedLinks(platform, []);
@@ -283,7 +293,7 @@ export default function Home() {
             <div className="grid gap-5 p-4 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
               <section className="space-y-4">
                 <ExtensionStatus platform={platform} status={extensionStatus} />
-                <LinkInput value={linksText} disabled={busy} onChange={setCurrentLinksText} onStart={startCrawl} />
+              <LinkInput value={linksText} disabled={busy} onChange={setCurrentLinksText} onStart={openStartDialog} />
                 {error ? <div className="rounded-md bg-red-100 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
                 <JobStats job={activeJob} />
                 <div className="flex flex-wrap gap-2">
@@ -327,6 +337,31 @@ export default function Home() {
             </p>
             <button onClick={() => setCompletionDialog(null)} className="mt-4 rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-300">
               OK
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {startDialogOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <div className="w-full max-w-md rounded-md border border-line bg-surface p-5 shadow-xl shadow-slate-950/20">
+            <div className="text-lg font-medium">Choose Parallel Tabs</div>
+            <p className="mt-2 text-sm text-muted">
+              More tabs can crawl faster, but 10-20 tabs may be heavier and can trigger marketplace checks more often.
+            </p>
+            <div className="mt-4 grid grid-cols-5 gap-2">
+              {[1, 3, 5, 10, 20].map((count) => (
+                <button
+                  key={count}
+                  disabled={busy}
+                  onClick={() => void startCrawl(count)}
+                  className="rounded-md border border-line bg-surface px-3 py-2 text-sm font-medium hover:bg-surface2"
+                >
+                  {count}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setStartDialogOpen(false)} className="mt-4 rounded-md border border-line bg-surface px-4 py-2 text-sm font-medium hover:bg-surface2">
+              Cancel
             </button>
           </div>
         </div>

@@ -18,8 +18,7 @@
         font-size: 12px;
         font-weight: 700;
       }
-      input,
-      select {
+      input {
         box-sizing: border-box;
         width: 100%;
         margin-top: 4px;
@@ -53,6 +52,12 @@
         line-height: 1.45;
         word-break: break-word;
       }
+      .hint {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #475569;
+        line-height: 1.4;
+      }
     </style>
   </head>
   <body>
@@ -61,12 +66,7 @@
     <input id="appUrl" placeholder="https://crawl-pi.vercel.app" />
     <label for="token">Extension Token</label>
     <input id="token" placeholder="EXTENSION_TOKEN" type="password" />
-    <label for="maxTabs">Tabs cùng lúc</label>
-    <select id="maxTabs">
-      <option value="1">1 tab</option>
-      <option value="3">3 tab</option>
-      <option value="5">5 tab</option>
-    </select>
+    <div class="hint">Parallel tabs are selected in the web app when you press Start Crawl.</div>
     <div class="row">
       <button id="connect">Connect</button>
       <button id="stop" class="secondary">Stop</button>

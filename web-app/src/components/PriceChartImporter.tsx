@@ -14,35 +14,21 @@ import {
 } from "recharts";
 
 type RangeKey = "30d" | "quarter" | "1y" | "all";
-type SeriesKey = "originalPrice" | "currentPrice" | "finalPrice";
-
-type ImportedRow = {
-  date: Date;
-  originalPrice: number;
-  currentPrice: number;
-  finalPrice: number;
-};
 
 type ChartPoint = {
   date: string;
   timestamp: number;
-  originalPrice?: number;
-  currentPrice?: number;
-  finalPrice?: number;
+  price?: number;
 };
 
-const seriesConfig: Record<SeriesKey, { label: string; color: string }> = {
-  originalPrice: { label: "Original Price", color: "#2563eb" },
-  currentPrice: { label: "Current Price", color: "#d97706" },
-  finalPrice: { label: "Final Price", color: "#059669" }
+type SkuPriceRow = {
+  skuId: string;
+  points: ChartPoint[];
 };
 
-const dateHeaders = ["date", "created at", "createdat", "ngày", "ngay", "thời gian", "thoi gian", "timestamp"];
-const priceHeaders: Record<SeriesKey, string[]> = {
-  originalPrice: ["original price", "giá gốc", "gia goc", "original", "giagoc"],
-  currentPrice: ["current price", "giá hiện tại", "gia hien tai", "seller price", "sellerprice", "current"],
-  finalPrice: ["final price", "giá sau khuyến mãi", "gia sau khuyen mai", "giá cuối", "gia cuoi", "final"]
-};
+const AVERAGE_SKU = "__average__";
+
+const skuHeaderCandidates = ["sku id", "skuid", "sku", "id sản phẩm", "id san pham", "product id", "item id"];
 
 function normalizeHeader(value: unknown) {
   return String(value ?? "")
@@ -55,26 +41,14 @@ function parsePrice(value: unknown) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   const text = String(value ?? "").trim();
   if (!text) return 0;
-  const digits = text.replace(/[^0-9.-]/g, "");
+  const digits = text.replace(/[^0-9.,-]/g, "");
   if (!digits) return 0;
+
+  // Vietnamese format: 1.016.660 or 1,016,660
   if (/^\d{1,3}(\.\d{3})+$/.test(digits)) return Number(digits.replace(/\./g, ""));
+  if (/^\d{1,3}(,\d{3})+$/.test(digits)) return Number(digits.replace(/,/g, ""));
+
   return Number(digits.replace(/,/g, "")) || 0;
-}
-
-function parseDate(value: unknown, fallback: Date) {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
-  if (typeof value === "number") {
-    const parsed = XLSX.SSF.parse_date_code(value);
-    if (parsed) return new Date(parsed.y, parsed.m - 1, parsed.d, parsed.H, parsed.M, parsed.S);
-  }
-  const text = String(value ?? "").trim();
-  if (!text) return fallback;
-  const parsed = new Date(text);
-  return Number.isNaN(parsed.getTime()) ? fallback : parsed;
-}
-
-function formatDateKey(date: Date) {
-  return date.toISOString().slice(0, 10);
 }
 
 function money(value: unknown) {
@@ -87,76 +61,119 @@ function percent(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
-function findHeader(headers: string[], candidates: string[]) {
-  const normalizedCandidates = candidates.map(normalizeHeader);
-  return headers.find((header) => normalizedCandidates.includes(normalizeHeader(header)));
-}
-
-function readRowsFromWorkbook(workbook: XLSX.WorkBook) {
-  const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-  return XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: "" });
-}
-
-function aggregateRows(rows: ImportedRow[]) {
-  const buckets = new Map<string, { timestamp: number; original: number[]; current: number[]; final: number[] }>();
-
-  for (const row of rows) {
-    const key = formatDateKey(row.date);
-    const bucket = buckets.get(key) ?? {
-      timestamp: row.date.getTime(),
-      original: [],
-      current: [],
-      final: []
-    };
-    if (row.originalPrice) bucket.original.push(row.originalPrice);
-    if (row.currentPrice) bucket.current.push(row.currentPrice);
-    if (row.finalPrice) bucket.final.push(row.finalPrice);
-    buckets.set(key, bucket);
-  }
-
-  return Array.from(buckets.entries())
-    .map(([date, bucket]) => ({
-      date,
-      timestamp: bucket.timestamp,
-      originalPrice: average(bucket.original),
-      currentPrice: average(bucket.current),
-      finalPrice: average(bucket.final)
-    }))
-    .sort((a, b) => a.timestamp - b.timestamp);
-}
-
 function average(values: number[]) {
   if (values.length === 0) return undefined;
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
+function readSheetMatrix(workbook: XLSX.WorkBook) {
+  const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, {
+    header: 1,
+    defval: "",
+    raw: false
+  });
+
+  return rows.filter((row) => row.some((cell) => String(cell ?? "").trim() !== ""));
+}
+
+function findSkuColumn(headers: unknown[]) {
+  const normalizedCandidates = skuHeaderCandidates.map(normalizeHeader);
+  const exactIndex = headers.findIndex((header) => normalizedCandidates.includes(normalizeHeader(header)));
+  if (exactIndex >= 0) return exactIndex;
+
+  // Fallback: nếu không có header SKU ID thì lấy cột đầu tiên như file mẫu.
+  return 0;
+}
+
+function parsePriceFormatRows(matrix: unknown[][]) {
+  if (matrix.length < 2) throw new Error("File has no usable rows.");
+
+  const headers = matrix[0].map((header) => String(header ?? "").trim());
+  const skuColumnIndex = findSkuColumn(headers);
+  const dayColumns = headers
+    .map((label, index) => ({ label: label || `Ngày ${index}`, index }))
+    .filter((column) => column.index !== skuColumnIndex && column.label.trim() !== "");
+
+  if (dayColumns.length === 0) throw new Error("No day/price columns found. Expected: SKU ID, Ngày 1, Ngày 2, ...");
+
+  const skuRows: SkuPriceRow[] = matrix
+    .slice(1)
+    .map((row) => {
+      const skuId = String(row[skuColumnIndex] ?? "").trim();
+      const points = dayColumns
+        .map((column, dayIndex) => {
+          const price = parsePrice(row[column.index]);
+          return price
+            ? {
+                date: column.label,
+                timestamp: dayIndex,
+                price
+              }
+            : null;
+        })
+        .filter(Boolean) as ChartPoint[];
+
+      return { skuId, points };
+    })
+    .filter((row) => row.skuId && row.points.length > 0);
+
+  if (skuRows.length === 0) throw new Error("No usable SKU price rows found.");
+
+  return { skuRows, dayCount: dayColumns.length };
+}
+
+function buildAverageSeries(skuRows: SkuPriceRow[]) {
+  const buckets = new Map<string, { date: string; timestamp: number; values: number[] }>();
+
+  for (const skuRow of skuRows) {
+    for (const point of skuRow.points) {
+      if (!point.price) continue;
+      const bucket = buckets.get(point.date) ?? {
+        date: point.date,
+        timestamp: point.timestamp,
+        values: []
+      };
+      bucket.values.push(point.price);
+      buckets.set(point.date, bucket);
+    }
+  }
+
+  return Array.from(buckets.values())
+    .map((bucket) => ({
+      date: bucket.date,
+      timestamp: bucket.timestamp,
+      price: average(bucket.values)
+    }))
+    .sort((a, b) => a.timestamp - b.timestamp);
+}
+
 function filterByRange(points: ChartPoint[], range: RangeKey) {
   if (range === "all" || points.length === 0) return points;
-  const latest = Math.max(...points.map((point) => point.timestamp));
-  const days = range === "30d" ? 30 : range === "quarter" ? 92 : 365;
-  const threshold = latest - days * 24 * 60 * 60 * 1000;
-  return points.filter((point) => point.timestamp >= threshold);
+  const count = range === "30d" ? 30 : range === "quarter" ? 92 : 365;
+  return points.slice(Math.max(points.length - count, 0));
 }
 
 export function PriceChartImporter() {
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [points, setPoints] = useState<ChartPoint[]>([]);
+  const [skuRows, setSkuRows] = useState<SkuPriceRow[]>([]);
+  const [selectedSku, setSelectedSku] = useState(AVERAGE_SKU);
   const [range, setRange] = useState<RangeKey>("30d");
-  const [visibleSeries, setVisibleSeries] = useState<Record<SeriesKey, boolean>>({
-    originalPrice: true,
-    currentPrice: true,
-    finalPrice: true
-  });
+  const [dayCount, setDayCount] = useState(0);
 
-  const filteredPoints = useMemo(() => filterByRange(points, range), [points, range]);
-  const selectedKeys = useMemo(() => (Object.keys(visibleSeries) as SeriesKey[]).filter((key) => visibleSeries[key]), [visibleSeries]);
+  const allAveragePoints = useMemo(() => buildAverageSeries(skuRows), [skuRows]);
+
+  const selectedPoints = useMemo(() => {
+    if (selectedSku === AVERAGE_SKU) return allAveragePoints;
+    return skuRows.find((row) => row.skuId === selectedSku)?.points ?? [];
+  }, [allAveragePoints, selectedSku, skuRows]);
+
+  const filteredPoints = useMemo(() => filterByRange(selectedPoints, range), [selectedPoints, range]);
 
   const stats = useMemo(() => {
-    const values = filteredPoints.flatMap((point) => selectedKeys.map((key) => Number(point[key] ?? 0)).filter(Boolean));
-    const latestPoint = filteredPoints[filteredPoints.length - 1];
-    const preferredLatestKey = (["finalPrice", "currentPrice", "originalPrice"] as SeriesKey[]).find((key) => visibleSeries[key] && latestPoint?.[key]);
-    const latest = preferredLatestKey && latestPoint ? Number(latestPoint[preferredLatestKey] ?? 0) : 0;
+    const values = filteredPoints.map((point) => Number(point.price ?? 0)).filter(Boolean);
+    const latest = values.length ? values[values.length - 1] : 0;
     const min = values.length ? Math.min(...values) : 0;
     const max = values.length ? Math.max(...values) : 0;
     const avg = values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
@@ -168,7 +185,7 @@ export function PriceChartImporter() {
       changeFromMin: min ? ((latest - min) / min) * 100 : 0,
       changeFromMax: max ? ((latest - max) / max) * 100 : 0
     };
-  }, [filteredPoints, selectedKeys, visibleSeries]);
+  }, [filteredPoints]);
 
   async function importFile(file: File) {
     setError(null);
@@ -176,33 +193,21 @@ export function PriceChartImporter() {
     try {
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
-      const rawRows = readRowsFromWorkbook(workbook);
-      if (rawRows.length === 0) throw new Error("File has no rows.");
+      const matrix = readSheetMatrix(workbook);
+      const parsed = parsePriceFormatRows(matrix);
 
-      const headers = Object.keys(rawRows[0]);
-      const dateHeader = findHeader(headers, dateHeaders);
-      const originalHeader = findHeader(headers, priceHeaders.originalPrice);
-      const currentHeader = findHeader(headers, priceHeaders.currentPrice);
-      const finalHeader = findHeader(headers, priceHeaders.finalPrice);
-      if (!originalHeader && !currentHeader && !finalHeader) throw new Error("No supported price columns found.");
-
-      const fallbackDate = new Date();
-      const parsedRows = rawRows
-        .map((row, index) => ({
-          date: parseDate(dateHeader ? row[dateHeader] : undefined, dateHeader ? fallbackDate : new Date(fallbackDate.getTime() + index)),
-          originalPrice: parsePrice(originalHeader ? row[originalHeader] : 0),
-          currentPrice: parsePrice(currentHeader ? row[currentHeader] : 0),
-          finalPrice: parsePrice(finalHeader ? row[finalHeader] : 0)
-        }))
-        .filter((row) => row.originalPrice || row.currentPrice || row.finalPrice);
-
-      if (parsedRows.length === 0) throw new Error("No usable price rows found.");
-      setPoints(aggregateRows(parsedRows));
+      setSkuRows(parsed.skuRows);
+      setDayCount(parsed.dayCount);
+      setSelectedSku(parsed.skuRows.length === 1 ? parsed.skuRows[0].skuId : AVERAGE_SKU);
     } catch (err) {
-      setPoints([]);
+      setSkuRows([]);
+      setDayCount(0);
+      setSelectedSku(AVERAGE_SKU);
       setError(err instanceof Error ? err.message : String(err));
     }
   }
+
+  const lineName = selectedSku === AVERAGE_SKU ? "Average Price" : `Price - ${selectedSku}`;
 
   return (
     <div className="space-y-4">
@@ -210,10 +215,10 @@ export function PriceChartImporter() {
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-xl font-medium">Price Chart</h2>
-            <p className="mt-1 text-sm text-muted">Import CSV or Excel files to compare price history.</p>
+            <p className="mt-1 text-sm text-muted">Import price format file: SKU ID + Ngày 1, Ngày 2, ... with one price per cell.</p>
           </div>
           <label className="inline-flex cursor-pointer items-center justify-center rounded-md bg-slate-950 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-950 dark:hover:bg-slate-300">
-            Import File
+            Import Price File
             <input
               type="file"
               accept=".csv,.xlsx,.xls"
@@ -226,7 +231,12 @@ export function PriceChartImporter() {
             />
           </label>
         </div>
-        {fileName ? <div className="mt-3 text-sm text-muted">Loaded: {fileName}</div> : null}
+
+        {fileName ? (
+          <div className="mt-3 text-sm text-muted">
+            Loaded: {fileName} · {skuRows.length} SKU · {dayCount} ngày
+          </div>
+        ) : null}
         {error ? <div className="mt-3 rounded-md bg-red-100 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{error}</div> : null}
       </div>
 
@@ -257,23 +267,29 @@ export function PriceChartImporter() {
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap gap-3">
-            {(Object.keys(seriesConfig) as SeriesKey[]).map((key) => (
-              <label key={key} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={visibleSeries[key]}
-                  onChange={(event) => setVisibleSeries((current) => ({ ...current, [key]: event.target.checked }))}
-                />
-                <span>{seriesConfig[key].label}</span>
-              </label>
-            ))}
+
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-muted">SKU</span>
+            <select
+              value={selectedSku}
+              onChange={(event) => setSelectedSku(event.target.value)}
+              className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm outline-none hover:bg-surface2"
+            >
+              {skuRows.length > 1 ? <option value={AVERAGE_SKU}>Tất cả SKU - giá trung bình</option> : null}
+              {skuRows.map((row) => (
+                <option key={row.skuId} value={row.skuId}>
+                  {row.skuId}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
         <div className="mt-4 h-[460px]">
           {filteredPoints.length === 0 ? (
-            <div className="flex h-full items-center justify-center rounded-md border border-dashed border-line text-sm text-muted">Import a CSV or Excel file to show the chart.</div>
+            <div className="flex h-full items-center justify-center rounded-md border border-dashed border-line text-sm text-muted">
+              Import a price format CSV or Excel file to show the chart.
+            </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={filteredPoints} margin={{ top: 10, right: 20, bottom: 10, left: 10 }}>
@@ -282,11 +298,7 @@ export function PriceChartImporter() {
                 <YAxis stroke="rgb(var(--color-muted))" tickFormatter={money} width={88} tick={{ fontSize: 12 }} />
                 <Tooltip formatter={(value) => money(value)} contentStyle={{ borderRadius: 6 }} />
                 <Legend />
-                {(Object.keys(seriesConfig) as SeriesKey[]).map((key) =>
-                  visibleSeries[key] ? (
-                    <Line key={key} type="monotone" dataKey={key} name={seriesConfig[key].label} stroke={seriesConfig[key].color} strokeWidth={2} dot={false} connectNulls />
-                  ) : null
-                )}
+                <Line type="monotone" dataKey="price" name={lineName} stroke="#2563eb" strokeWidth={2} dot={false} connectNulls />
               </LineChart>
             </ResponsiveContainer>
           )}

@@ -3,7 +3,8 @@ import { z } from "zod";
 
 export const createJobSchema = z.object({
   platform: z.nativeEnum(Platform),
-  links: z.array(z.string().trim().url()).min(1).max(500)
+  links: z.array(z.string().trim().url()).min(1).max(500),
+  maxTabs: z.coerce.number().int().min(1).max(20).default(1)
 });
 
 export const jobHistoryQuerySchema = z.object({

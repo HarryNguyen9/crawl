@@ -28,6 +28,8 @@ export const extensionRowSchema = z.object({
   currentPrice: z.coerce.number().default(0),
   finalPrice: z.coerce.number().default(0),
   couponDiscount: z.coerce.number().default(0),
+  promotionDiscount: z.coerce.number().default(0),
+  voucherDiscount: z.coerce.number().default(0),
   salePrice: z.coerce.number().default(0),
   voucherNote: z.string().optional().nullable(),
   discountText: z.string().optional().nullable(),
@@ -81,6 +83,8 @@ export function normalizeExtensionRows(rows: unknown[]) {
       currentPrice: parsed.currentPrice,
       finalPrice: parsed.finalPrice,
       couponDiscount: parsed.couponDiscount,
+      promotionDiscount: parsed.promotionDiscount,
+      voucherDiscount: parsed.voucherDiscount,
       salePrice: parsed.salePrice,
       voucherNote: parsed.voucherNote ?? null,
       discountText: parsed.discountText ?? null,
@@ -160,7 +164,7 @@ export async function claimNextMarketplaceLink(clientId: string, platform?: Plat
   });
 
   touchExtensionClient(clientId, link.url);
-  return { jobId: link.jobId, linkId: link.id, url: link.url, platform: link.platform };
+  return { jobId: link.jobId, linkId: link.id, url: link.url, platform: link.platform, maxTabs: link.job.maxTabs };
 }
 
 export async function peekNextMarketplaceLink(clientId: string, platform?: Platform) {
@@ -252,6 +256,8 @@ export async function saveExtensionResult(input: z.infer<typeof extensionResultS
         currentPrice: row.currentPrice,
         finalPrice: row.finalPrice,
         couponDiscount: row.couponDiscount,
+        promotionDiscount: row.promotionDiscount,
+        voucherDiscount: row.voucherDiscount,
         salePrice: row.salePrice,
         voucherNote: row.voucherNote || "method: companion_extension",
         discountText: row.discountText,

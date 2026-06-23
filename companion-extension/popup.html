@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TMall Companion</title>
+    <style>
+      body {
+        width: 320px;
+        margin: 0;
+        padding: 14px;
+        font-family: Arial, sans-serif;
+        color: #0f172a;
+      }
+      label {
+        display: block;
+        margin-top: 10px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      input {
+        box-sizing: border-box;
+        width: 100%;
+        margin-top: 4px;
+        padding: 8px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+      }
+      button {
+        margin-top: 12px;
+        padding: 8px 10px;
+        border: 1px solid #0f172a;
+        border-radius: 6px;
+        background: #0f172a;
+        color: white;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: white;
+        color: #0f172a;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+      }
+      .status {
+        margin-top: 12px;
+        padding: 8px;
+        border-radius: 6px;
+        background: #f1f5f9;
+        font-size: 12px;
+        line-height: 1.45;
+        word-break: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>TMall Companion</h3>
+    <label for="appUrl">Web App URL</label>
+    <input id="appUrl" placeholder="http://localhost:3000" />
+    <label for="token">Extension Token</label>
+    <input id="token" placeholder="EXTENSION_TOKEN" type="password" />
+    <div class="row">
+      <button id="connect">Connect</button>
+      <button id="stop" class="secondary">Stop</button>
+    </div>
+    <div id="status" class="status">Disconnected</div>
+    <script src="popup.js"></script>
+  </body>
+</html>

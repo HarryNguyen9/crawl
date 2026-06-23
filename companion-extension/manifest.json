@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "TMall Companion Crawler",
+  "version": "1.0.0",
+  "description": "Companion extension for Lazada browser-session crawling.",
+  "permissions": ["storage", "tabs", "scripting", "cookies"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "TMall Companion",
+    "default_popup": "popup.html"
+  }
+}

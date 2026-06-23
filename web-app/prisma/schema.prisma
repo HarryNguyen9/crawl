@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Platform {
+  lazada
+  shopee
+}
+
+enum CrawlJobStatus {
+  pending
+  running
+  completed
+  failed
+  cancelled
+}
+
+enum CrawlLinkStatus {
+  pending
+  running
+  completed
+  failed
+}
+
+enum CrawlLogLevel {
+  info
+  warn
+  error
+}
+
+model CrawlJob {
+  id             String         @id @default(cuid())
+  platform       Platform
+  status         CrawlJobStatus @default(pending)
+  totalLinks     Int            @default(0)
+  processedLinks Int            @default(0)
+  successCount   Int            @default(0)
+  failedCount    Int            @default(0)
+  createdAt      DateTime       @default(now())
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  links          CrawlLink[]
+  skus           ProductSku[]
+  logs           CrawlLog[]
+
+  @@index([platform, createdAt])
+  @@index([status])
+}
+
+model CrawlLink {
+  id         String          @id @default(cuid())
+  jobId      String
+  platform   Platform
+  url        String
+  status     CrawlLinkStatus @default(pending)
+  error      String?
+  retryCount Int             @default(0)
+  createdAt  DateTime        @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+  job        CrawlJob        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  skus       ProductSku[]
+  logs       CrawlLog[]
+
+  @@index([jobId, status])
+  @@index([platform])
+}
+
+model ProductSku {
+  id             String    @id @default(cuid())
+  jobId          String
+  linkId         String
+  platform       Platform
+  url            String
+  shopId         String?
+  itemId         String?
+  skuId          String?
+  productName    String
+  variantName    String?
+  originalPrice  Float     @default(0)
+  currentPrice   Float     @default(0)
+  finalPrice     Float     @default(0)
+  couponDiscount Float     @default(0)
+  salePrice      Float     @default(0)
+  voucherNote    String?
+  discountText   String?
+  rawJson        String?
+  createdAt      DateTime  @default(now())
+  job            CrawlJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  link           CrawlLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([linkId])
+  @@index([platform])
+}
+
+model CrawlLog {
+  id        String        @id @default(cuid())
+  jobId     String
+  linkId    String?
+  level     CrawlLogLevel
+  message   String
+  meta      String?
+  createdAt DateTime      @default(now())
+  job       CrawlJob      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  link      CrawlLink?    @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, createdAt])
+  @@index([level])
+}
